@@ -23,22 +23,47 @@ def find_report_links(html):
     """Return a list of report links found in the page HTML."""
     soup = BeautifulSoup(html, "html.parser")
 
-    table = soup.find("table")
+    table = soup.find("table", class_="lex-table")
 
     if table is None:
         raise ValueError("No price table found on DOE NCR page.")
 
-    links = table.find_all("a")
+    # links = table.find_all("a")
     
     reports = []
-    for link in links:
-        text = link.get_text(strip=True)
-        url = link.get("href")
 
-        reports.append({
-            "text": text,
-            "url": url
-        })
+    # for link in links:
+    #     text = link.get_text(strip=True)
+    #     url = link.get("href")
+
+    #     reports.append({
+    #         "text": text,
+    #         "url": url
+    #     })
+
+    # for row in table:
+    #     row.find(["td", "th"])
+
+    rows = table.find_all("tr")
+    # print("Rows found:", len(rows))
+
+    for row in rows:
+        first_cell = row.find("td")
+        if first_cell is None:
+            continue
+        year_text = first_cell.get_text(strip=True)
+        if not year_text.isdigit() or len(year_text) != 4:
+            continue
+        # print("Year cell:", year_text)
+
+        for link in row.find_all("a"):
+            reports.append({
+                "year": int(year_text),
+                "text": link.get_text(strip=True),
+                "url":  link.get("href")
+            })
+        # print(reports)
+
     return reports
 
 
