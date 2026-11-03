@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import date, datetime
 from pathlib import Path
+import logging
 
 from src.parse import parse_report, read_title_week_start
 
@@ -8,6 +9,8 @@ DB_PATH = Path("data/prices.db")
 SCHEMA_PATH = Path("sql/schema.sql")
 RAW_DIR = Path("data/raw/ncr")
 REGION = "NCR"
+
+logger = logging.getLogger(__name__)
 
 
 def connect():
@@ -66,23 +69,24 @@ def load_report(conn, region, pdf_path):
 
 
 def load_all(conn, region, raw_dir):
-    """Load every PDF in raw_dir that isn't in the database yet."""
+    """Load every PDF in raw_dir that isn't in the database yet. Return (loaded, skipped)."""
     loaded = 0
     skipped = 0
     for pdf_path in sorted(raw_dir.glob("*.pdf")):
         try:
             count = load_report(conn, region, pdf_path)
         except ValueError as error:
-            print(f"  SKIPPED {pdf_path.name}: {error}")
+            logger.warning("Skipped %s: %s", pdf_path.name, error)
             skipped += 1
             continue
         if count:
-            print(f"  loaded  {pdf_path.name}: {count} price rows")
+            logger.info("Loaded %s: %d price rows", pdf_path.name, count)
             loaded += 1
-    print(f"\nLoaded {loaded} new reports, skipped {skipped} with problems")
+    return loaded, skipped
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     conn = connect()
     create_tables(conn)
     load_all(conn, REGION, RAW_DIR)

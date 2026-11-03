@@ -5,12 +5,15 @@ import re
 from datetime import datetime
 import time
 from pathlib import Path
+import logging
 
 
 NCR_URL = "https://doe.gov.ph/data-and-prices/liquid-fuels/retail-pump-prices/ncr-pump-prices"
 HEADERS = {"User-Agent": "PricetrackerLearning/0.1"}
 WEEK_START_PATTERN = r"([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?"
 RAW_DIR = Path("data/raw/ncr")
+
+logger = logging.getLogger(__name__)
 
 def fetch_page(url):
 
@@ -117,6 +120,7 @@ def download_pdf(url, file_path):
     file_path.write_bytes(response.content)
 
 def download_new_reports(reports, limit=None):
+    """Download reports we don't have yet, newest first. Return (downloaded, skipped)."""
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
     newest_first = sorted(reports, key=lambda r: r["week_start"], reverse=True)
@@ -129,25 +133,25 @@ def download_new_reports(reports, limit=None):
 
     for report in newest_first:
         if report["url"] in seen_urls:
-            print(f" duplicate link, skipping: {report['text']} ({report['year']})")
+            logger.info("Duplicate link, skipping: %s (%s)", report["text"], report["year"])
             continue
         seen_urls.add(report["url"])
 
         file_path = RAW_DIR / f"{report['week_start']}.pdf"
         if file_path.exists():
-            print(f" already have: {file_path.name}")
+            logger.debug("Already have %s", file_path.name)
             skipped += 1
             continue
 
         download_pdf(report["url"], file_path)
-        print(f" downloaded:  {file_path.name}")
+        logger.info("Downloaded %s", file_path.name)
         downloaded += 1
         time.sleep(1)
 
-    print(f"\nDownloaded {downloaded}, skipped {skipped}")
-
+    return downloaded, skipped
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     html = fetch_page(NCR_URL)
 
     # parse every link and check the totals
