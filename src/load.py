@@ -75,8 +75,8 @@ def load_all(conn, region, raw_dir):
     for pdf_path in sorted(raw_dir.glob("*.pdf")):
         try:
             count = load_report(conn, region, pdf_path)
-        except ValueError as error:
-            logger.warning("Skipped %s: %s", pdf_path.name, error)
+        except Exception as error:
+            logger.warning("Skipped %s: %s: %s", pdf_path.name, type(error).__name__, error)
             skipped += 1
             continue
         if count:

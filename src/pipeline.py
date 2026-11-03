@@ -36,8 +36,10 @@ def run(limit):
         logger.warning("Could not date link %r (%s)", failure["text"], failure["year"])
     problems += len(failures)
 
-    downloaded, already_had = download_new_reports(reports, limit=limit)
-    logger.info("Downloads: %d new, %d already had", downloaded, already_had)
+    downloaded, already_had, failed = download_new_reports(reports, limit=limit)
+    logger.info("Downloads: %d new, %d already had, %d failed",
+                downloaded, already_had, failed)
+    problems += failed
 
     conn = connect()
     try:
@@ -57,13 +59,19 @@ def main():
         "--limit", type=int, default=5,
         help="download at most this many of the newest reports (default: 5)",
     )
+    parser.add_argument(
+        "--all", action="store_true",
+        help="download every report on the page (ignores --limit)",
+    )
     args = parser.parse_args()
 
     setup_logging()
-    logger.info("Pipeline started (limit=%s)", args.limit)
+
+    limit = None if args.all else args.limit
+    logger.info("Pipeline started (limit=%s)", limit)
 
     try:
-        problems = run(args.limit)
+        problems = run(limit)
     except Exception:
         logger.exception("Pipeline crashed")
         return 2

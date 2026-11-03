@@ -120,7 +120,10 @@ def download_pdf(url, file_path):
     file_path.write_bytes(response.content)
 
 def download_new_reports(reports, limit=None):
-    """Download reports we don't have yet, newest first. Return (downloaded, skipped)."""
+    """Download reports we don't have yet, newest first.
+
+    Return (downloaded, skipped, failed).
+    """
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
     newest_first = sorted(reports, key=lambda r: r["week_start"], reverse=True)
@@ -130,6 +133,7 @@ def download_new_reports(reports, limit=None):
     seen_urls = set()
     downloaded = 0
     skipped = 0
+    failed = 0
 
     for report in newest_first:
         if report["url"] in seen_urls:
@@ -143,12 +147,18 @@ def download_new_reports(reports, limit=None):
             skipped += 1
             continue
 
-        download_pdf(report["url"], file_path)
-        logger.info("Downloaded %s", file_path.name)
-        downloaded += 1
+        try:
+            download_pdf(report["url"], file_path)
+        except (requests.RequestException, ValueError) as error:
+            logger.warning("Download failed for %s (%s, %s): %s",
+                           file_path.name, report["text"], report["year"], error)
+            failed += 1
+        else:
+            logger.info("Downloaded %s", file_path.name)
+            downloaded += 1
         time.sleep(1)
 
-    return downloaded, skipped
+    return downloaded, skipped, failed
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
