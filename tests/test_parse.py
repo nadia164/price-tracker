@@ -1,7 +1,7 @@
 import pytest
 
-from src.parse import IncompletePriceError, normalize_column_name, parse_price_range, is_extra_report_table
-
+from src.parse import IncompletePriceError, normalize_column_name, parse_price_range, is_extra_report_table, parse_title_week_start
+from datetime import date
 
 def test_parse_price_range_normal():
     assert parse_price_range("82.40 88.50") == (82.4, 88.5)
@@ -74,3 +74,20 @@ def test_is_extra_report_table_ignores_normal_price_table():
         ["RON 100", "82.40 88.50", "", "", ""],
     ]
     assert is_extra_report_table(table) is False
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Price Monitoring of Liquid Fuels\nNCR\n(For the week of October 27 - November 2, 2026)",
+         date(2026, 10, 27)),
+        ("Price Monitoring of Liquid Fuels\nNCR\n(For the period of June 4-10, 2024)",
+         date(2024, 6, 4)),
+    ],
+)
+def test_parse_title_week_start(text, expected):
+    assert parse_title_week_start(text) == expected
+
+
+def test_parse_title_week_start_rejects_2017_style_title():
+    with pytest.raises(ValueError):
+        parse_title_week_start("PREVAILING RETAIL PRICES OF PETROLEUM PRODUCTS\nAs of January 03, 2017")

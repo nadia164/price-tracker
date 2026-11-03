@@ -19,7 +19,7 @@ EXPECTED_BRANDS = [
     "PETRON", "SHELL", "CALTEX", "PHOENIX", "TOTAL",
     "FLYING V", "UNIOIL", "SEAOIL", "PTT", "INDEPENDENT",
 ]
-TITLE_PATTERN = r"For the week of (.+?)\)"
+TITLE_PATTERN = r"For the (?:week|period) of (.+?)\)"
 EXTRA_REPORT_MARKERS = ("PREVAILING RETAIL PRICES",)
 
 class IncompletePriceError(ValueError):
@@ -192,20 +192,27 @@ def parse_report(pdf_path):
         raise ValueError(f"No price rows found in {pdf_path.name}")
     return all_rows
 
+def parse_title_week_start(text):
+    """Return the week start date from a report's title text."""
+    match = re.search(TITLE_PATTERN, text)
+    if match is None:
+        raise ValueError("No 'For the week/period of' title found")
+
+    period = match.group(1)                 # e.g. "June 4-10, 2024"
+    years = re.findall(r"\d{4}", period)
+    if not years:
+        raise ValueError(f"No year in title period {period!r}")
+    return parse_week_start(period, int(years[-1]))
+
+
 def read_title_week_start(pdf_path):
     """Return the week start date written in the PDF's own title."""
     with pdfplumber.open(pdf_path) as pdf:
-        text = pdf.pages[0].extract_text() or ""
-
-    match = re.search(TITLE_PATTERN, text)
-    if match is None:
-        raise ValueError(f"No 'For the week of' title in {pdf_path.name}")
-
-    period = match.group(1)                 # e.g. "October 27 - November 2, 2026"
-    years = re.findall(r"\d{4}", period)
-    if not years:
-        raise ValueError(f"No year in title period {period!r} in {pdf_path.name}")
-    return parse_week_start(period, int(years[-1]))
+        text = pdf.pages[0].dedupe_chars().extract_text() or ""
+    try:
+        return parse_title_week_start(text)
+    except ValueError as error:
+        raise ValueError(f"{error} in {pdf_path.name}") from error
 
 
 if __name__ == "__main__":
