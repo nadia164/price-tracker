@@ -53,4 +53,20 @@ show("6. May 12 vs May 19, rows per brand", """
     GROUP BY brand ORDER BY brand
 """)
 
+show("7. First and last week per city", """
+    SELECT city, MIN(week_start), MAX(week_start), COUNT(DISTINCT week_start) AS weeks
+    FROM prices GROUP BY city ORDER BY MIN(week_start), city
+""")
+
+show("8. Gaps between consecutive weeks (expect none over 7 days)", """
+    SELECT prev_week, week_start,
+           julianday(week_start) - julianday(prev_week) AS days_apart
+    FROM (
+        SELECT week_start,
+               LAG(week_start) OVER (ORDER BY week_start) AS prev_week
+        FROM (SELECT DISTINCT week_start FROM prices)
+    )
+    WHERE days_apart > 7
+""")
+
 conn.close()
