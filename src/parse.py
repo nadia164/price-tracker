@@ -1,7 +1,9 @@
 from collections import Counter
 from pathlib import Path
+import re
 
 import pdfplumber
+from src.extract import parse_week_start
 
 TABLE_SETTINGS = {"vertical_strategy": "lines", "horizontal_strategy": "text"}
 AREA_COLUMN_RIGHT_EDGE = 86
@@ -11,6 +13,7 @@ EXPECTED_BRANDS = [
     "PETRON", "SHELL", "CALTEX", "PHOENIX", "TOTAL",
     "FLYING V", "UNIOIL", "SEAOIL", "PTT", "INDEPENDENT",
 ]
+TITLE_PATTERN = r"For the week of (.+?)\)"
 
 
 def get_column_positions(table):
@@ -123,6 +126,21 @@ def parse_report(pdf_path):
             all_rows.extend(rows)
             seen_cities.update(cities)
     return all_rows
+
+def read_title_week_start(pdf_path):
+    """Return the week start date written in the PDF's own title."""
+    with pdfplumber.open(pdf_path) as pdf:
+        text = pdf.pages[0].extract_text() or ""
+
+    match = re.search(TITLE_PATTERN, text)
+    if match is None:
+        raise ValueError(f"No 'For the week of' title in {pdf_path.name}")
+
+    period = match.group(1)                 # e.g. "October 27 - November 2, 2026"
+    years = re.findall(r"\d{4}", period)
+    if not years:
+        raise ValueError(f"No year in title period {period!r} in {pdf_path.name}")
+    return parse_week_start(period, int(years[-1]))
 
 
 if __name__ == "__main__":
